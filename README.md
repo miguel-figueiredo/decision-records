@@ -130,30 +130,8 @@ python server.py
 
 This will launch the FastMCP server, making the following MCP tools available:
 
-- `list_audio_devices()` - List all available audio input devices
 - `record_audio(device, sample_rate)` - Record audio from microphone
 - `transcribe_audio(file_path, model)` - Transcribe audio file
-
-## Hello World Example
-
-A simple FastMCP server example is included to demonstrate the basics:
-
-### Run the Hello World Server
-
-```sh
-python hello_server.py
-```
-
-### Run the Hello World Client
-
-```sh
-python hello_client.py
-```
-
-The Hello World example includes three simple tools:
-- `hello(name)` - Returns a greeting message
-- `add(a, b)` - Adds two numbers
-- `get_info()` - Returns server information
 
 ## Troubleshooting
 
