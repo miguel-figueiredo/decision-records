@@ -11,8 +11,8 @@ import sounddevice as sd
 
 # Configuration
 SAMPLE_RATE = 16000
-CHANNELS = 1
-DEVICE = 0  # Change this to select a different microphone
+CHANNELS = 17
+DEVICE = 8  # Change this to select a different microphone
 FILE_NAME = "output_sounddevice.wav"
 DTYPE = 'int16'
 MODEL_NAME = "turbo"  # Options: tiny, base, small, medium, large, turbo
@@ -73,8 +73,11 @@ def save_audio():
     
     try:
         audio_data = np.concatenate(recorded_frames)
+        # Convert to mono by taking the mean across channels
+        if CHANNELS > 1:
+            audio_data = np.mean(audio_data, axis=1, dtype=DTYPE)
         with wave.open(FILE_NAME, 'wb') as wf:
-            wf.setnchannels(CHANNELS)
+            wf.setnchannels(1)  # Save as mono
             wf.setsampwidth(np.dtype(DTYPE).itemsize)
             wf.setframerate(SAMPLE_RATE)
             wf.writeframes(audio_data.tobytes())
