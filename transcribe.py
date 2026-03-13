@@ -3,33 +3,33 @@ Audio recorder and transcriber using OpenAI Whisper.
 Records audio from the microphone and transcribes it to text.
 """
 
+import queue
 import sys
-import os
 import whisper
 import sounddevice as sd
+import soundfile as sf
 import numpy as np
 import threading
-import wave
 from pathlib import Path
 
 # Configuration
 SAMPLE_RATE = 16000
-CHANNELS = 1
-DEVICE = 0  # Change this to select a different microphone
+CHANNELS = 17
+DEVICE = 7  # Change this to select a different microphone
 FILE_NAME = "output_sounddevice.wav"
 DTYPE = 'int16'
 MODEL_NAME = "turbo"  # Options: tiny, base, small, medium, large, turbo
 
 # Global variables
-recorded_frames = []
 recording = True
+q = queue.Queue()
 
 
 def callback(indata, frames, time, status):
-    """Callback function to capture audio data."""
+    """This is called (from a separate thread) for each audio block."""
     if status:
-        print(f"Status: {status}", file=sys.stderr)
-    recorded_frames.append(indata.copy())
+        print(status, file=sys.stderr)
+    q.put(indata.copy())
 
 
 def wait_for_enter():
@@ -49,8 +49,7 @@ def list_audio_devices():
 
 def record_audio():
     """Record audio from the microphone."""
-    global recorded_frames, recording
-    recorded_frames = []
+    global q, recording
     recording = True
     
     print(f"Using device: {DEVICE}")
@@ -61,43 +60,28 @@ def record_audio():
     stop_thread.start()
     
     try:
-        with sd.InputStream(
-            samplerate=SAMPLE_RATE,
-            channels=CHANNELS,
-            dtype=DTYPE,
-            device=DEVICE,
-            callback=callback
-        ):
-            while recording:
-                sd.sleep(100)
+        with sf.SoundFile(FILE_NAME, mode='w', samplerate=SAMPLE_RATE,
+                      channels=1) as file:
+            with sd.InputStream(
+                samplerate=SAMPLE_RATE,
+                channels=CHANNELS,
+                dtype=DTYPE,
+                device=DEVICE,
+                callback=callback
+            ):
+                while recording:
+                    if CHANNELS > 1:
+                        # TODO: Separate channels into different files, and transcribe them separately
+                        data = np.mean(q.get(), axis=1, dtype=DTYPE)
+                    else:
+                        data = q.get()
+                    file.write(data)
     except Exception as e:
         print(f"Error during recording: {e}", file=sys.stderr)
         return False
     
     stop_thread.join()
     return True
-
-
-def save_audio():
-    """Save recorded audio to a WAV file."""
-    if not recorded_frames:
-        print("No audio data to save.")
-        return False
-    
-    try:
-        audio_data = np.concatenate(recorded_frames)
-        with wave.open(FILE_NAME, 'wb') as wf:
-            wf.setnchannels(CHANNELS)
-            wf.setsampwidth(np.dtype(DTYPE).itemsize)
-            wf.setframerate(SAMPLE_RATE)
-            wf.writeframes(audio_data.tobytes())
-        
-        file_size = Path(FILE_NAME).stat().st_size / 1024  # KB
-        print(f"✓ Recording saved as: {FILE_NAME} ({file_size:.2f} KB)")
-        return True
-    except Exception as e:
-        print(f"Error saving audio: {e}", file=sys.stderr)
-        return False
 
 
 def transcribe_audio():
@@ -138,11 +122,6 @@ def main():
     # Record audio
     if not record_audio():
         print("Recording failed.")
-        return
-    
-    # Save audio
-    if not save_audio():
-        print("Saving audio failed.")
         return
     
     # Transcribe

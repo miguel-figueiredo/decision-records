@@ -1,19 +1,11 @@
-# Speech-to-Text Recorder
+# Decision Records
 
-This project records audio from your microphone, saves it as a    - Follow the interactive prompts** to:
-   - List available audio devices
-   - Record and transcribe audio
-   - Transcribe existing audio filesile, transcribes it using OpenAI's Whisper model, and optionally generates a summary using OpenAI's API.
-
-## Implementation notes
-
-https://cyberdom.blog/a-step-by-step-guide-for-microsoft-365-copilot-api-development/
+This project records audio from your microphone, transcribes it using OpenAI's Whisper model, and exposes the functionality as an MCP server.
 
 ## Requirements
 
 - Python 3.7+
 - [pip](https://pip.pypa.io/en/stable/)
-- OpenAI API key (optional, for summarization feature)
 
 ## Installation
 
@@ -73,67 +65,56 @@ Whisper may require `ffmpeg` for some audio formats. Install it via:
 2. **Run the script:**
 
    ```sh
-   python test.py
+   python transcribe.py
    ```
 
 3. **Follow the prompts:**
    - The script will list available audio devices
-   - Press Enter when you're ready to start recording
    - Speak into your microphone
-   - Press Enter again to stop recording
-   - Wait for transcription and (if configured) summarization
+   - Press Enter to stop recording
+   - Wait for transcription
 
-### Using MCP Client
+## Project Structure
 
-1. **Run the MCP client:**
-
-   ```sh
-   python client.py
-   ```
-
-2. **Follow the interactive prompts** to:
-   - List available audio devices
-   - Record and transcribe audio
-   - Transcribe existing audio files
-   - Generate summaries of transcribed text
+- **`transcribe.py`** — Standalone audio recording and transcription module. Records from the microphone, saves to WAV, and transcribes using Whisper. Multi-channel audio is mixed down to mono.
+- **`server.py`** — FastMCP server that exposes recording and transcription as MCP tools. Imports functionality from `transcribe.py`.
 
 ## Features
 
-- **Audio Recording**: Records audio from your microphone
+- **Audio Recording**: Records audio from your microphone using `sounddevice`
 - **Speech-to-Text**: Transcribes audio using OpenAI Whisper
+- **Multi-Channel Support**: Mixes multi-channel audio down to mono for transcription
 - **Language Detection**: Automatically detects the spoken language
 - **MCP Server**: FastMCP server for integration with other tools and services
 
 ## Configuration
 
-You can modify the following constants in `test.py`:
+You can modify the following constants in `transcribe.py`:
 
 - `DEVICE`: Microphone device index (default: 0)
 - `SAMPLE_RATE`: Audio sample rate (default: 16000 Hz)
+- `CHANNELS`: Number of audio channels (default: 1)
 - `MODEL_NAME`: Whisper model to use (options: tiny, base, small, medium, large, turbo)
 - `FILE_NAME`: Output file name for the recording
 
-## Notes
-
-- You may need to adjust the `DEVICE` variable in `test.py` to select the correct microphone
-- For best results, use a quiet environment when recording
-- To deactivate the virtual environment when done, simply run: `deactivate`
-
-
 ## Running the MCP Server
-
-The main MCP server for this project is implemented in `server.py`. You can start the MCP server using:
 
 ```sh
 python server.py
 ```
 
-This will launch the FastMCP server, making the following MCP tools available:
+This launches the FastMCP server on `http://127.0.0.1:8000` with the following tools:
 
-- `record_audio(device, sample_rate)` - Record audio from microphone
-- `transcribe_audio(file_path, model)` - Transcribe audio file
+- **`start_recording`** — Starts recording audio from the microphone in a background thread.
+- **`get_transcription`** — Stops the recording and returns the transcribed text.
+
+## Notes
+
+- You may need to adjust the `DEVICE` variable in `transcribe.py` to select the correct microphone
+- For best results, use a quiet environment when recording
+- To deactivate the virtual environment when done, simply run: `deactivate`
 
 ## Troubleshooting
 
-- If you get a device error, run the script to see available devices and update the `DEVICE` constant
+- If you get a device error, run `python transcribe.py` to see available devices and update the `DEVICE` constant
 - If transcription fails, ensure you have `ffmpeg` installed
