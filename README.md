@@ -87,7 +87,7 @@ Whisper may require `ffmpeg` for some audio formats. Install it via:
 - **Language Detection**: Automatically detects the spoken language
 - **MCP Server**: FastMCP server for integration with other tools and services
 
-## Configuration
+## Recording Configuration
 
 You can modify the following constants in `transcribe.py`:
 
@@ -96,6 +96,14 @@ You can modify the following constants in `transcribe.py`:
 - `CHANNELS`: Number of audio channels (default: 1)
 - `MODEL_NAME`: Whisper model to use (options: tiny, base, small, medium, large, turbo)
 - `FILE_NAME`: Output file name for the recording
+
+## MCP Configuration
+
+Use the mcp-config.json file contents to configure the file `~/.copilot/mcp-config.json`.
+
+## Running the Copilot CLI 
+
+`copilot --agent decision-record-summarizer`
 
 ## Running the MCP Server
 
@@ -107,6 +115,10 @@ This launches the FastMCP server on `http://127.0.0.1:8000` with the following t
 
 - **`start_recording`** — Starts recording audio from the microphone in a background thread.
 - **`get_transcription`** — Stops the recording and returns the transcribed text.
+
+## Starting Copilot CLI
+
+
 
 ## Notes
 
