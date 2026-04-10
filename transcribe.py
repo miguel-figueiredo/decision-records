@@ -47,7 +47,7 @@ def list_audio_devices():
     print("=" * 50 + "\n")
 
 
-def record_audio():
+def record_audio(cli=False):
     """Record audio from the microphone."""
     global q, recording
     recording = True
@@ -56,8 +56,9 @@ def record_audio():
     print(f"Sample rate: {SAMPLE_RATE} Hz")
     print(f"Channels: {CHANNELS}")
     
-    stop_thread = threading.Thread(target=wait_for_enter)
-    stop_thread.start()
+    if cli:
+        stop_thread = threading.Thread(target=wait_for_enter)
+        stop_thread.start()
     
     try:
         with sf.SoundFile(FILE_NAME, mode='w', samplerate=SAMPLE_RATE,
@@ -80,9 +81,14 @@ def record_audio():
         print(f"Error during recording: {e}", file=sys.stderr)
         return False
     
-    stop_thread.join()
+    if cli:
+        stop_thread.join()
     return True
 
+def stop_recording():
+    """Stop the recording by setting the global flag."""
+    global recording
+    recording = False
 
 def transcribe_audio():
     """Transcribe the recorded audio using Whisper."""
@@ -120,7 +126,7 @@ def main():
     list_audio_devices()
     
     # Record audio
-    if not record_audio():
+    if not record_audio(cli=True):
         print("Recording failed.")
         return
     

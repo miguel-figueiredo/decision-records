@@ -6,15 +6,15 @@ import transcribe
 mcp = FastMCP(
     name = "Demo 🚀")
 
-@mcp.tool(description="Starts a recording.")
+@mcp.tool(description="Starts a recording.", task=False)
 def start_recording():
     print("starting recording")
     threading.Thread(target=transcribe.record_audio).start()
 
-@mcp.tool(description="Get the recording transcription.")
-def get_transcription():
+@mcp.tool(description="Get the recording transcription.", task=True)
+async def get_transcription():
     print("stopping recording")
-    transcribe.recording = False
+    transcribe.stop_recording()
     return transcribe.transcribe_audio()
 
 if __name__ == "__main__":
