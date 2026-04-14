@@ -1,6 +1,6 @@
 # Decision Records
 
-This project records audio from your microphone, transcribes it using OpenAI's Whisper model, and exposes the functionality as an MCP server.
+Records audio from your microphone, transcribes it using OpenAI Whisper, and summarizes it using AWS Bedrock.
 
 ## Requirements
 
@@ -11,7 +11,7 @@ This project records audio from your microphone, transcribes it using OpenAI's W
 
 ### 1. Clone the repository or download the files
 
-### 2. Set up a Python virtual environment (recommended)
+### 2. Set up a Python virtual environment
 
 **macOS/Linux:**
 ```sh
@@ -25,108 +25,101 @@ python -m venv .venv
 .venv\Scripts\activate
 ```
 
-### 3. Install the required Python packages
+### 3. Install dependencies
 
 ```sh
 pip install -r requirements.txt
 ```
 
-### 4. (Optional) Install ffmpeg for Whisper
+### 4. (Optional) Install ffmpeg
 
-Whisper may require `ffmpeg` for some audio formats. Install it via:
+Whisper may require `ffmpeg` for some audio formats:
 
-- **macOS:**  
-  ```sh
-  brew install ffmpeg
-  ```
-- **Ubuntu:**  
-  ```sh
-  sudo apt-get install ffmpeg
-  ```
-- **Windows:**  
-  Download from [ffmpeg.org](https://ffmpeg.org/download.html) and add to your PATH.
+- **macOS:** `brew install ffmpeg`
+- **Ubuntu:** `sudo apt-get install ffmpeg`
+- **Windows:** Download from [ffmpeg.org](https://ffmpeg.org/download.html) and add to PATH.
 
 ## Usage
 
-### Standalone Script
+```sh
+python agent.py
+```
 
-1. **Activate your virtual environment** (if you created one):
-
-   **macOS/Linux:**
-   ```sh
-   source .venv/bin/activate
-   ```
-
-   **Windows:**
-   ```sh
-   .venv\Scripts\activate
-   ```
-
-2. **Run the script:**
-
-   ```sh
-   python transcribe.py
-   ```
-
-3. **Follow the prompts:**
-   - The script will list available audio devices
-   - Speak into your microphone
-   - Press Enter to stop recording
-   - Wait for transcription
+- Lists available audio devices
+- Starts recording from the configured device
+- Press Enter to stop recording
+- Transcribes the audio using Whisper
+- Summarizes the transcription using AWS Bedrock
 
 ## Project Structure
 
-- **`transcribe.py`** — Standalone audio recording and transcription module. Records from the microphone, saves to WAV, and transcribes using Whisper. Multi-channel audio is mixed down to mono.
-- **`server.py`** — FastMCP server that exposes recording and transcription as MCP tools. Imports functionality from `transcribe.py`.
+- **`record.py`** — Records audio from the microphone and saves to WAV. Multi-channel audio is mixed down to mono.
+- **`transcribe.py`** — Transcribes the WAV file using Whisper.
+- **`summarize.py`** — Summarizes text using AWS Bedrock.
+- **`agent.py`** — Orchestrates recording, transcription, and summarization.
 
-## Features
+## Configuration
 
-- **Audio Recording**: Records audio from your microphone using `sounddevice`
-- **Speech-to-Text**: Transcribes audio using OpenAI Whisper
-- **Multi-Channel Support**: Mixes multi-channel audio down to mono for transcription
-- **Language Detection**: Automatically detects the spoken language
-- **MCP Server**: FastMCP server for integration with other tools and services
+### Recording (`record.py`)
 
-## Recording Configuration
+- `DEVICE`: Audio device index (default: `7`)
+- `SAMPLE_RATE`: Sample rate in Hz (default: `16000`)
+- `CHANNELS`: Number of audio channels (default: `17`)
+- `FILE_NAME`: Output WAV file (default: `output_sounddevice.wav`)
 
-You can modify the following constants in `transcribe.py`:
+### Transcription (`transcribe.py`)
 
-- `DEVICE`: Microphone device index (default: 0)
-- `SAMPLE_RATE`: Audio sample rate (default: 16000 Hz)
-- `CHANNELS`: Number of audio channels (default: 1)
-- `MODEL_NAME`: Whisper model to use (options: tiny, base, small, medium, large, turbo)
-- `FILE_NAME`: Output file name for the recording
+- `MODEL_NAME`: Whisper model to use (default: `turbo`; options: `tiny`, `base`, `small`, `medium`, `large`, `turbo`)
 
-## MCP Configuration
+### Summarization (`agent.py`)
 
-Use the mcp-config.json file contents to configure the file `~/.copilot/mcp-config.json`.
+- `MODEL_ID`: AWS Bedrock model ID
+- `REGION`: AWS region
+- `AWS_PROFILE`: AWS credentials profile
 
-## Running the Copilot CLI 
+## Audio Capture with BlackHole
 
-`copilot --agent decision-record-summarizer`
+[BlackHole](https://existential.audio/blackhole/) is a macOS virtual audio driver for routing audio between applications — useful for capturing both sides of a call.
 
-## Running the MCP Server
+### Setup
 
-```sh
-python server.py
-```
+1. Install BlackHole:
+   ```sh
+   brew install blackhole-16ch
+   ```
 
-This launches the FastMCP server on `http://127.0.0.1:8000` with the following tools:
+2. In **Audio MIDI Setup**, create a **Multi-Output Device** with your speakers and BlackHole 16ch, then set it as your system sound output.
 
-- **`start_recording`** — Starts recording audio from the microphone in a background thread.
-- **`get_transcription`** — Stops the recording and returns the transcribed text.
+3. (Optional) Create an **Aggregate Device** combining your microphone and BlackHole 16ch to capture mic and system audio together.
 
-## Starting Copilot CLI
+4. Find the device index:
+   ```sh
+   python agent.py
+   ```
+   Note the index of BlackHole 16ch or your Aggregate Device from the printed list.
 
+5. Update `record.py`:
+   ```python
+   DEVICE = 7      # Replace with your device index
+   CHANNELS = 16   # 16 for blackhole-16ch, 2 for blackhole-2ch
+   ```
 
+### Typical Workflows
+
+| Scenario | macOS Sound Output | `DEVICE` |
+|---|---|---|
+| Record system audio only | Multi-Output Device | BlackHole 16ch |
+| Record microphone only | Any | Built-in Microphone |
+| Record mic + system audio | Multi-Output Device | Aggregate Device |
+
+### Troubleshooting
+
+- **No audio captured:** Ensure macOS sound output is set to the Multi-Output Device.
+- **Echo or feedback:** Do not enable monitoring on BlackHole in Audio MIDI Setup.
+- **Device not found:** Run `python agent.py` to list devices; reinstall with `brew reinstall blackhole-16ch` if missing.
+- **Permission errors:** Go to **System Settings → Privacy & Security → Microphone** and grant access to your terminal.
 
 ## Notes
 
-- You may need to adjust the `DEVICE` variable in `transcribe.py` to select the correct microphone
-- For best results, use a quiet environment when recording
-- To deactivate the virtual environment when done, simply run: `deactivate`
-
-## Troubleshooting
-
-- If you get a device error, run `python transcribe.py` to see available devices and update the `DEVICE` constant
-- If transcription fails, ensure you have `ffmpeg` installed
+- To deactivate the virtual environment: `deactivate`
+- If transcription fails, ensure `ffmpeg` is installed
