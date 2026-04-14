@@ -21,7 +21,6 @@ from summarize import summarize
 DEVICE = 8
 SAMPLE_RATE = 16000
 CHANNELS = 17
-FILE_NAME = f"audio/output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
 DTYPE = 'int16'
 
 # Transcription configuration
@@ -45,24 +44,38 @@ def load_skill(name):
     return content.strip()
 
 
+def list_skills():
+    skills_dir = Path(__file__).parent / "skills"
+    return sorted(p.name for p in skills_dir.iterdir() if (p / "SKILL.md").exists())
+
+
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python agent.py <skill>", file=sys.stderr)
+        skills = list_skills()
+        print("Usage: python agent.py <skill>\n", file=sys.stderr)
+        print("Available skills:", file=sys.stderr)
+        for skill in skills:
+            print(f"  {skill}", file=sys.stderr)
         sys.exit(1)
 
     skill_prompt = load_skill(sys.argv[1])
 
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    file_name = f"audio/output_{timestamp}.wav"
+    summary_path = Path(f"summaries/summary_{timestamp}.md")
+
     Path("audio").mkdir(exist_ok=True)
+    summary_path.parent.mkdir(exist_ok=True)
 
     print("=== Audio Recorder & Transcriber ===\n")
 
     list_audio_devices()
 
-    if not record_audio(DEVICE, SAMPLE_RATE, CHANNELS, FILE_NAME, DTYPE):
+    if not record_audio(DEVICE, SAMPLE_RATE, CHANNELS, file_name, DTYPE):
         print("Recording failed.")
         return
 
-    transcription = transcribe_audio(FILE_NAME, WHISPER_MODEL)
+    transcription = transcribe_audio(file_name, WHISPER_MODEL)
     if not transcription:
         print("No transcription available.")
         return
@@ -73,9 +86,16 @@ def main():
         aws_profile=AWS_PROFILE,
         system_prompt=skill_prompt
     )
+    if not summary:
+        print("Summarization failed.")
+        return
+
     print("\n=== Summary ===")
     print(summary)
     print("=" * 50)
+
+    summary_path.write_text(summary, encoding="utf-8")
+    print(f"\nSummary saved to {summary_path}")
 
 
 if __name__ == "__main__":
