@@ -16,7 +16,8 @@ def summarize(text, model_id, region_name="us-east-1", aws_profile=None, system_
         "messages": [
             {"role": "user", "content": f"Transcription:\n{text}"}
         ],
-        "max_tokens": 1024,
+        # ~170 tokens per minute of audio, so 20k tokens should cover ~2 hours of transcription
+        "max_tokens": 20000,
         "temperature": 0.3,
         "anthropic_version": "bedrock-2023-05-31"
     }
