@@ -3,13 +3,17 @@ Orchestrates recording, transcription, and summarization.
 
 Usage:
     python agent.py <skill>
+    python agent.py <skill> --transcription <file>
+    python agent.py <skill> --audio <file>
 
-    <skill>  Name of a skill file in skills/ (without .md extension)
-             The skill body is used as the system prompt for summarization.
+    <skill>              Name of a skill file in skills/ (without .md extension)
+    --transcription      Path to a transcription file. Skips recording and transcription.
+    --audio              Path to an audio file. Skips recording but still transcribes.
 """
 
 import sys
 import re
+import argparse
 from datetime import datetime
 from pathlib import Path
 
@@ -50,35 +54,63 @@ def list_skills():
 
 
 def main():
-    if len(sys.argv) < 2:
-        skills = list_skills()
-        print("Usage: python agent.py <skill>\n", file=sys.stderr)
-        print("Available skills:", file=sys.stderr)
-        for skill in skills:
-            print(f"  {skill}", file=sys.stderr)
-        sys.exit(1)
+    skills = list_skills()
+    parser = argparse.ArgumentParser(description="Record, transcribe, and summarize audio.")
+    parser.add_argument("skill", choices=skills, help="Skill to use for summarization.")
+    parser.add_argument(
+        "--transcription",
+        metavar="FILE",
+        type=Path,
+        help="Path to a transcription file. Skips recording and transcription.",
+    )
+    parser.add_argument(
+        "--audio",
+        metavar="FILE",
+        type=Path,
+        help="Path to an audio file. Skips recording but still transcribes.",
+    )
+    args = parser.parse_args()
 
-    skill_prompt = load_skill(sys.argv[1])
+    if args.transcription and args.audio:
+        parser.error("--transcription and --audio are mutually exclusive.")
+
+    skill_prompt = load_skill(args.skill)
 
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    file_name = f"audio/output_{timestamp}.wav"
+    transcription_path = Path(f"transcriptions/transcription_{timestamp}.txt")
     summary_path = Path(f"summaries/summary_{timestamp}.md")
-
-    Path("audio").mkdir(exist_ok=True)
+    transcription_path.parent.mkdir(exist_ok=True)
     summary_path.parent.mkdir(exist_ok=True)
 
-    print("=== Audio Recorder & Transcriber ===\n")
+    if args.transcription:
+        if not args.transcription.exists():
+            print(f"Transcription file not found: {args.transcription}", file=sys.stderr)
+            sys.exit(1)
+        transcription = args.transcription.read_text(encoding="utf-8")
+    else:
+        if args.audio:
+            if not args.audio.exists():
+                print(f"Audio file not found: {args.audio}", file=sys.stderr)
+                sys.exit(1)
+            audio_file = str(args.audio)
+        else:
+            audio_file = f"audio/output_{timestamp}.wav"
+            Path("audio").mkdir(exist_ok=True)
 
-    list_audio_devices()
+            print("=== Audio Recorder & Transcriber ===\n")
+            list_audio_devices()
 
-    if not record_audio(DEVICE, SAMPLE_RATE, CHANNELS, file_name, DTYPE):
-        print("Recording failed.")
-        return
+            if not record_audio(DEVICE, SAMPLE_RATE, CHANNELS, audio_file, DTYPE):
+                print("Recording failed.")
+                return
 
-    transcription = transcribe_audio(file_name, WHISPER_MODEL)
-    if not transcription:
-        print("No transcription available.")
-        return
+        transcription = transcribe_audio(audio_file, WHISPER_MODEL)
+        if not transcription:
+            print("No transcription available.")
+            return
+
+        transcription_path.write_text(transcription, encoding="utf-8")
+        print(f"Transcription saved to {transcription_path}")
 
     print("\nSummarizing with AWS Bedrock...")
     summary = summarize(
